@@ -17,12 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={
-          space.className +
-          "w-full mx-auto bg-teal-800 max-w-6xl antialiased select-none "
-        }
-      >
+      <body className={space.className + " antialiased"}>
         {children}
 
         <Toaster />
