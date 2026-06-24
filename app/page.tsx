@@ -30,11 +30,94 @@ const DOT_STYLES: { label: string; value: DotStyle }[] = [
   { label: "Classy Round", value: "classy-rounded" },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+// ─── Electron particle background ─────────────────────────────────────────────
+
+function ElectronBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let animId: number;
+
+    function resize() {
+      if (!canvas) return;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    const COUNT = 65;
+    const MAX_DIST = 160;
+
+    const pts = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45,
+      r: Math.random() * 1.3 + 0.4,
+    }));
+
+    function frame() {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x;
+          const dy = pts[i].y - pts[j].y;
+          const d = Math.hypot(dx, dy);
+          if (d < MAX_DIST) {
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x, pts[i].y);
+            ctx.lineTo(pts[j].x, pts[j].y);
+            ctx.strokeStyle = `rgba(34,211,238,${(1 - d / MAX_DIST) * 0.09})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      for (const p of pts) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(34,211,238,0.28)";
+        ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+      }
+
+      animId = requestAnimationFrame(frame);
+    }
+
+    frame();
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
   return (
-    <label className="text-[11px] font-medium uppercase tracking-widest text-zinc-400">
+    <canvas
+      ref={canvasRef}
+      className="pointer-events-none fixed inset-0 z-0"
+      style={{ opacity: 0.55 }}
+    />
+  );
+}
+
+// ─── Small reusable UI pieces ─────────────────────────────────────────────────
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="text-[10px] font-medium uppercase tracking-widest text-zinc-500">
       {children}
-    </label>
+    </span>
   );
 }
 
@@ -48,12 +131,12 @@ function ColorField({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <SectionLabel>{label}</SectionLabel>
-      <div className="flex items-center gap-2.5 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+    <div className="flex flex-col gap-1">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2 backdrop-blur-sm">
         <div className="relative flex-shrink-0">
           <div
-            className="h-5 w-5 rounded-md border border-zinc-700"
+            className="h-4 w-4 rounded border border-zinc-700"
             style={{ background: value }}
           />
           <input
@@ -70,28 +153,11 @@ function ColorField({
             const v = e.target.value;
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
           }}
-          className="flex-1 bg-transparent font-mono text-sm text-zinc-200 outline-none"
+          className="flex-1 bg-transparent font-mono text-xs text-zinc-200 outline-none"
           maxLength={7}
           spellCheck={false}
         />
       </div>
-    </div>
-  );
-}
-
-function SegmentGrid({
-  cols,
-  children,
-}: {
-  cols: number;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className="grid gap-1.5"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
-      {children}
     </div>
   );
 }
@@ -108,16 +174,63 @@ function Chip({
   return (
     <button
       onClick={onClick}
-      className={`rounded-xl py-2 text-xs font-medium transition-colors ${
+      className={`rounded-lg py-1.5 text-[11px] font-medium transition-colors ${
         active
           ? "bg-zinc-100 text-zinc-900"
-          : "bg-zinc-900 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+          : "bg-zinc-900/80 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
       }`}
     >
       {children}
     </button>
   );
 }
+
+function QrPlaceholder() {
+  return (
+    <div className="flex flex-col items-center gap-3 text-zinc-700">
+      <svg
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="3" height="3" />
+        <rect x="18" y="18" width="3" height="3" />
+        <rect x="14" y="18" width="3" height="3" />
+        <rect x="18" y="14" width="3" height="3" />
+      </svg>
+      <span className="text-xs">Enter text to preview</span>
+    </div>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
   const [data, setData] = useState("");
@@ -140,9 +253,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!previewRef.current) return;
-
-    const run = () => {
+    function run() {
       if (!qrLib.current || !previewRef.current) return;
 
       if (!data) {
@@ -152,8 +263,8 @@ export default function Home() {
       }
 
       const options = {
-        width: 280,
-        height: 280,
+        width: 420,
+        height: 420,
         data,
         dotsOptions: { color: qrColor, type: dotStyle },
         backgroundOptions: { color: bgColor },
@@ -176,12 +287,11 @@ export default function Home() {
       } else {
         qrInstance.current.update(options);
       }
-    };
+    }
 
     if (qrLib.current) {
       run();
     } else {
-      // Library may still be loading — retry shortly
       const t = setTimeout(run, 300);
       return () => clearTimeout(t);
     }
@@ -193,7 +303,6 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (ev) => setLogo(ev.target?.result as string);
     reader.readAsDataURL(file);
-    // Reset input so the same file can be re-selected
     e.target.value = "";
   }
 
@@ -239,53 +348,64 @@ export default function Home() {
   const ready = data.length > 0;
 
   return (
-    <main className="min-h-screen bg-zinc-950 px-4 py-12 md:px-8">
-      <div className="mx-auto w-full max-w-2xl">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
-            QR Generator
-          </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Customize and export your QR code
-          </p>
-        </div>
+    <main className="relative flex h-screen flex-col overflow-hidden bg-zinc-950">
+      <ElectronBackground />
 
-        {/* URL Input */}
+      {/* Header */}
+      <header className="relative z-10 flex-shrink-0 pt-6 pb-2 text-center">
+        <h1 className="text-lg font-semibold tracking-tight text-zinc-100">
+          QR Generator
+        </h1>
+        <p className="mt-0.5 text-xs text-zinc-500">
+          Customize and export your QR code
+        </p>
+      </header>
+
+      {/* URL Input */}
+      <div className="relative z-10 flex-shrink-0 px-6 pt-3 pb-3 md:px-14">
         <input
           type="text"
           value={data}
           onChange={(e) => setData(e.target.value)}
           placeholder="Enter a URL or text…"
-          className="mb-5 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder-zinc-600 outline-none transition focus:border-zinc-600"
+          className="w-full rounded-xl border border-zinc-800 bg-zinc-900/80 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none backdrop-blur-sm transition focus:border-zinc-600"
         />
+      </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {/* Preview */}
-          <div className="md:sticky md:top-8 md:self-start">
+      {/* Two-column content — fills remaining height */}
+      <div className="relative z-10 flex flex-1 overflow-hidden gap-6 px-6 md:px-14 pb-3">
+        {/* Left: QR preview — grows to fill column height as square */}
+        <div className="hidden md:flex flex-1 items-center justify-center overflow-hidden">
+          <div
+            className="flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
+            style={{
+              background: bgColor,
+              width: "100%",
+              aspectRatio: "1",
+              maxHeight: "100%",
+            }}
+          >
+            {/* qr-code-styling appends a canvas here; scale it to fill */}
             <div
-              className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
-              style={{ background: bgColor }}
-            >
-              {/* Always in DOM so ref stays valid; hidden via CSS when empty */}
-              <div
-                ref={previewRef}
-                style={{ display: data ? "flex" : "none" }}
-                className="h-full w-full items-center justify-center"
-              />
-              {!data && <QrPlaceholder />}
-            </div>
+              ref={previewRef}
+              style={{ display: data ? "block" : "none", width: "100%", height: "100%" }}
+              className="[&>canvas]:!w-full [&>canvas]:!h-full"
+            />
+            {!data && <QrPlaceholder />}
           </div>
+        </div>
 
-          {/* Controls */}
-          <div className="flex flex-col gap-4">
+        {/* Right: Controls — split into top / bottom groups to fill height */}
+        <div className="w-full md:w-72 flex-shrink-0 flex flex-col justify-between overflow-y-auto">
+          {/* Top controls */}
+          <div className="flex flex-col gap-3">
             <ColorField label="QR Color" value={qrColor} onChange={setQrColor} />
             <ColorField label="Background" value={bgColor} onChange={setBgColor} />
 
-            {/* Dot Shape */}
-            <div className="flex flex-col gap-1.5">
-              <SectionLabel>Shape</SectionLabel>
-              <SegmentGrid cols={3}>
+            {/* Shape */}
+            <div className="flex flex-col gap-1">
+              <Label>Shape</Label>
+              <div className="grid grid-cols-3 gap-1.5">
                 {DOT_STYLES.map((s) => (
                   <Chip
                     key={s.value}
@@ -295,12 +415,12 @@ export default function Home() {
                     {s.label}
                   </Chip>
                 ))}
-              </SegmentGrid>
+              </div>
             </div>
 
             {/* Logo */}
-            <div className="flex flex-col gap-1.5">
-              <SectionLabel>Logo</SectionLabel>
+            <div className="flex flex-col gap-1">
+              <Label>Logo</Label>
               <input
                 ref={logoInputRef}
                 type="file"
@@ -309,18 +429,18 @@ export default function Home() {
                 className="hidden"
               />
               {logo ? (
-                <div className="flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+                <div className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2">
                   <img
                     src={logo}
                     alt="logo"
-                    className="h-7 w-7 flex-shrink-0 rounded object-contain"
+                    className="h-6 w-6 flex-shrink-0 rounded object-contain"
                   />
                   <span className="flex-1 truncate text-xs text-zinc-400">
                     Logo uploaded
                   </span>
                   <button
                     onClick={() => setLogo("")}
-                    className="text-xs text-zinc-500 transition-colors hover:text-zinc-200"
+                    className="text-[11px] text-zinc-500 transition-colors hover:text-zinc-200"
                   >
                     Remove
                   </button>
@@ -328,18 +448,20 @@ export default function Home() {
               ) : (
                 <button
                   onClick={() => logoInputRef.current?.click()}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-zinc-700 bg-zinc-900 py-3 text-xs text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-700 bg-zinc-900/60 py-2.5 text-xs text-zinc-500 transition-colors hover:border-zinc-500 hover:text-zinc-300"
                 >
                   <UploadIcon />
                   Upload image
                 </button>
               )}
             </div>
+          </div>
 
-            {/* Export Size */}
-            <div className="flex flex-col gap-1.5">
-              <SectionLabel>Export Size</SectionLabel>
-              <SegmentGrid cols={4}>
+          {/* Bottom controls — pushed to bottom via justify-between */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Label>Export Size</Label>
+              <div className="grid grid-cols-4 gap-1.5">
                 {SIZES.map((s) => (
                   <Chip
                     key={s.value}
@@ -349,13 +471,12 @@ export default function Home() {
                     {s.label}
                   </Chip>
                 ))}
-              </SegmentGrid>
+              </div>
             </div>
 
-            {/* Format */}
-            <div className="flex flex-col gap-1.5">
-              <SectionLabel>Format</SectionLabel>
-              <SegmentGrid cols={3}>
+            <div className="flex flex-col gap-1">
+              <Label>Format</Label>
+              <div className="grid grid-cols-3 gap-1.5">
                 {FORMATS.map((f) => (
                   <Chip
                     key={f}
@@ -365,17 +486,16 @@ export default function Home() {
                     {f}
                   </Chip>
                 ))}
-              </SegmentGrid>
+              </div>
             </div>
 
-            {/* Download */}
             <button
               onClick={handleDownload}
               disabled={!ready}
-              className={`mt-2 rounded-xl py-3 text-sm font-medium transition-colors ${
+              className={`rounded-xl py-2.5 text-sm font-medium transition-colors ${
                 ready
                   ? "bg-zinc-100 text-zinc-900 hover:bg-white"
-                  : "cursor-not-allowed bg-zinc-900 text-zinc-600"
+                  : "cursor-not-allowed bg-zinc-900/80 text-zinc-600"
               }`}
             >
               {ready ? `Download ${format}` : "Download"}
@@ -383,51 +503,21 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="relative z-10 flex-shrink-0 py-3 text-center">
+        <p className="text-xs text-zinc-600">
+          Built with ❤️ by{" "}
+          <a
+            href="https://acloe.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-500 transition-colors hover:text-zinc-300"
+          >
+            Acloe
+          </a>
+        </p>
+      </footer>
     </main>
-  );
-}
-
-function QrPlaceholder() {
-  return (
-    <div className="flex flex-col items-center gap-3 text-zinc-700">
-      <svg
-        width="52"
-        height="52"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="3" height="3" />
-        <rect x="18" y="18" width="3" height="3" />
-        <rect x="14" y="18" width="3" height="3" />
-        <rect x="18" y="14" width="3" height="3" />
-      </svg>
-      <span className="text-xs">Enter text to preview</span>
-    </div>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
   );
 }
