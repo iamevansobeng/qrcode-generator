@@ -121,42 +121,73 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
+const CHECKERBOARD =
+  "repeating-conic-gradient(#3a3a3a 0% 25%, #262626 0% 50%) 0 0 / 8px 8px";
+
 function ColorField({
   label,
   value,
   onChange,
+  transparent = false,
+  onTransparentToggle,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  transparent?: boolean;
+  onTransparentToggle?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
       <Label>{label}</Label>
       <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800 bg-zinc-900/80 px-3 py-2 backdrop-blur-sm">
+        {/* Color swatch / picker */}
         <div className="relative flex-shrink-0">
           <div
-            className="h-4 w-4 rounded border border-zinc-700"
-            style={{ background: value }}
+            className="h-4 w-4 overflow-hidden rounded border border-zinc-700"
+            style={{ background: transparent ? CHECKERBOARD : value }}
           />
-          <input
-            type="color"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-          />
+          {!transparent && (
+            <input
+              type="color"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            />
+          )}
         </div>
+
+        {/* Hex input */}
         <input
           type="text"
-          value={value.toUpperCase()}
+          value={transparent ? "Transparent" : value.toUpperCase()}
+          readOnly={transparent}
           onChange={(e) => {
+            if (transparent) return;
             const v = e.target.value;
             if (/^#[0-9a-fA-F]{0,6}$/.test(v)) onChange(v);
           }}
-          className="flex-1 bg-transparent font-mono text-xs text-zinc-200 outline-none"
+          className={`flex-1 bg-transparent font-mono text-xs outline-none ${
+            transparent ? "cursor-default text-zinc-500 italic" : "text-zinc-200"
+          }`}
           maxLength={7}
           spellCheck={false}
         />
+
+        {/* α toggle */}
+        {onTransparentToggle && (
+          <button
+            onClick={onTransparentToggle}
+            title={transparent ? "Remove transparency" : "Set transparent"}
+            className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors ${
+              transparent
+                ? "border border-cyan-500/40 bg-cyan-500/20 text-cyan-400"
+                : "text-zinc-600 hover:text-zinc-300"
+            }`}
+          >
+            α
+          </button>
+        )}
       </div>
     </div>
   );
@@ -236,6 +267,8 @@ export default function Home() {
   const [data, setData] = useState("");
   const [qrColor, setQrColor] = useState("#000000");
   const [bgColor, setBgColor] = useState("#ffffff");
+  const [qrTransparent, setQrTransparent] = useState(false);
+  const [bgTransparent, setBgTransparent] = useState(false);
   const [size, setSize] = useState(512);
   const [format, setFormat] = useState<Format>("PNG");
   const [dotStyle, setDotStyle] = useState<DotStyle>("square");
@@ -266,8 +299,13 @@ export default function Home() {
         width: 420,
         height: 420,
         data,
-        dotsOptions: { color: qrColor, type: dotStyle },
-        backgroundOptions: { color: bgColor },
+        dotsOptions: {
+          color: qrTransparent ? "rgba(0,0,0,0)" : qrColor,
+          type: dotStyle,
+        },
+        backgroundOptions: {
+          color: bgTransparent ? "rgba(0,0,0,0)" : bgColor,
+        },
         image: logo || undefined,
         imageOptions: {
           hideBackgroundDots: true,
@@ -295,7 +333,7 @@ export default function Home() {
       const t = setTimeout(run, 300);
       return () => clearTimeout(t);
     }
-  }, [data, qrColor, bgColor, dotStyle, logo]);
+  }, [data, qrColor, bgColor, qrTransparent, bgTransparent, dotStyle, logo]);
 
   function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -308,6 +346,12 @@ export default function Home() {
 
   async function handleDownload() {
     if (!data || !qrLib.current) return;
+
+    if (format === "JPG" && (bgTransparent || qrTransparent)) {
+      toast.error("JPG doesn't support transparency — use PNG or SVG.");
+      return;
+    }
+
     try {
       const extMap: Record<Format, string> = { PNG: "png", JPG: "jpeg", SVG: "svg" };
       const ext = extMap[format];
@@ -316,8 +360,13 @@ export default function Home() {
         width: size,
         height: size,
         data,
-        dotsOptions: { color: qrColor, type: dotStyle },
-        backgroundOptions: { color: bgColor },
+        dotsOptions: {
+          color: qrTransparent ? "rgba(0,0,0,0)" : qrColor,
+          type: dotStyle,
+        },
+        backgroundOptions: {
+          color: bgTransparent ? "rgba(0,0,0,0)" : bgColor,
+        },
         image: logo || undefined,
         imageOptions: {
           hideBackgroundDots: true,
@@ -379,7 +428,7 @@ export default function Home() {
           <div
             className="flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
             style={{
-              background: bgColor,
+              background: bgTransparent ? CHECKERBOARD : bgColor,
               height: "100%",
               aspectRatio: "1",
               maxWidth: "100%",
@@ -399,8 +448,20 @@ export default function Home() {
         <div className="w-full md:w-72 flex-shrink-0 flex flex-col justify-between overflow-y-auto">
           {/* Top controls */}
           <div className="flex flex-col gap-3">
-            <ColorField label="QR Color" value={qrColor} onChange={setQrColor} />
-            <ColorField label="Background" value={bgColor} onChange={setBgColor} />
+            <ColorField
+              label="QR Color"
+              value={qrColor}
+              onChange={setQrColor}
+              transparent={qrTransparent}
+              onTransparentToggle={() => setQrTransparent((v) => !v)}
+            />
+            <ColorField
+              label="Background"
+              value={bgColor}
+              onChange={setBgColor}
+              transparent={bgTransparent}
+              onTransparentToggle={() => setBgTransparent((v) => !v)}
+            />
 
             {/* Shape */}
             <div className="flex flex-col gap-1">
