@@ -410,8 +410,8 @@ export default function Home() {
         </p>
       </header>
 
-      {/* URL Input */}
-      <div className="relative z-10 flex-shrink-0 px-6 pt-3 pb-3 md:px-14">
+      {/* URL Input — mobile only; desktop version lives inside the left column */}
+      <div className="relative z-10 flex-shrink-0 px-6 pt-3 pb-3 md:hidden">
         <input
           type="text"
           value={data}
@@ -423,24 +423,35 @@ export default function Home() {
 
       {/* Two-column content — fills remaining height */}
       <div className="relative z-10 flex flex-1 overflow-hidden gap-6 px-6 md:px-14 pb-3">
-        {/* Left: QR preview — grows to fill column height as square */}
-        <div className="hidden md:flex flex-1 items-center justify-center overflow-hidden">
-          <div
-            className="flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
-            style={{
-              background: bgTransparent ? CHECKERBOARD : bgColor,
-              height: "100%",
-              aspectRatio: "1",
-              maxWidth: "100%",
-            }}
-          >
-            {/* qr-code-styling appends a canvas; w-full h-auto preserves 1:1 ratio */}
+        {/* Left: URL input + QR preview stacked */}
+        <div className="hidden md:flex flex-1 flex-col gap-3 overflow-hidden">
+          {/* URL input — same width as the QR preview */}
+          <input
+            type="text"
+            value={data}
+            onChange={(e) => setData(e.target.value)}
+            placeholder="Enter a URL or text…"
+            className="flex-shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/80 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 outline-none backdrop-blur-sm transition focus:border-zinc-600"
+          />
+
+          {/* QR preview — fills remaining height as a square */}
+          <div className="flex flex-1 min-h-0 items-center justify-center">
             <div
-              ref={previewRef}
-              style={{ display: data ? "block" : "none", width: "100%", height: "100%" }}
-              className="[&>canvas]:!w-full [&>canvas]:!h-auto"
-            />
-            {!data && <QrPlaceholder />}
+              className="flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
+              style={{
+                background: bgTransparent ? CHECKERBOARD : bgColor,
+                height: "100%",
+                aspectRatio: "1",
+                maxWidth: "100%",
+              }}
+            >
+              <div
+                ref={previewRef}
+                style={{ display: data ? "block" : "none", width: "100%", height: "100%" }}
+                className="[&>canvas]:!w-full [&>canvas]:!h-auto"
+              />
+              {!data && <QrPlaceholder />}
+            </div>
           </div>
         </div>
 
