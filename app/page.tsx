@@ -380,16 +380,16 @@ export default function Home() {
             className="flex items-center justify-center overflow-hidden rounded-2xl border border-zinc-800"
             style={{
               background: bgColor,
-              width: "100%",
+              height: "100%",
               aspectRatio: "1",
-              maxHeight: "100%",
+              maxWidth: "100%",
             }}
           >
-            {/* qr-code-styling appends a canvas here; scale it to fill */}
+            {/* qr-code-styling appends a canvas; w-full h-auto preserves 1:1 ratio */}
             <div
               ref={previewRef}
               style={{ display: data ? "block" : "none", width: "100%", height: "100%" }}
-              className="[&>canvas]:!w-full [&>canvas]:!h-full"
+              className="[&>canvas]:!w-full [&>canvas]:!h-auto"
             />
             {!data && <QrPlaceholder />}
           </div>
